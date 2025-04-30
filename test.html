@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ทดสอบกุ้ง - คู่/คี่</title>
+  <style>
+    body { font-family: sans-serif; background: #f0f0f0; padding: 20px; }
+    .container { max-width: 700px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { text-align: center; color: #2c3e50; }
+    input[type="file"] { margin: 15px 0; display: block; }
+    img { max-width: 150px; margin: 10px; border-radius: 8px; border: 1px solid #ccc; }
+    .result { margin-top: 10px; padding: 10px; background: #ecf9ec; border-radius: 8px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>AI ทายกุ้งว่าเป็นเลขคู่หรือคี่</h1>
+    <input type="file" id="imageInput" accept="image/*" multiple>
+    <div id="preview"></div>
+    <div class="result" id="results"></div>
+  </div>
+
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/7WzGMxo9r/";
+    let model;
+
+    async function loadModel() {
+      try {
+        model = await tmImage.load(URL + "model.json", URL + "metadata.json");
+        document.getElementById("results").innerHTML = "<b>✅ โมเดลโหลดแล้ว! เลือกรูปภาพเพื่อตรวจสอบ</b>";
+      } catch (err) {
+        document.getElementById("results").innerHTML = "<span style='color:red;'>❌ โหลดโมเดลไม่สำเร็จ: " + err.message + "</span>";
+      }
+    }
+
+    async function predictImage(file, container) {
+      const img = document.createElement("img");
+      try {
+        img.src = window.URL.createObjectURL(file);
+        img.onload = async () => {
+          container.appendChild(img);
+          try {
+            const prediction = await model.predict(img);
+            let resultText = prediction.map(p => `${p.className}: ${(p.probability * 100).toFixed(2)}%`).join("<br>");
+            const p = document.createElement("div");
+            p.className = "result";
+            p.innerHTML = resultText;
+            container.appendChild(p);
+          } catch (err) {
+            const p = document.createElement("div");
+            p.style.color = "red";
+            p.innerText = "❌ ทำนายผิดพลาด: " + err.message;
+            container.appendChild(p);
+          }
+        };
+      } catch (err) {
+        const p = document.createElement("div");
+        p.style.color = "red";
+        p.innerText = "❌ โหลดรูปภาพล้มเหลว: " + err.message;
+        container.appendChild(p);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("imageInput").addEventListener("change", async (event) => {
+        const preview = document.getElementById("preview");
+        preview.innerHTML = "";
+        const files = Array.from(event.target.files);
+        for (const file of files) {
+          await predictImage(file, preview);
+        }
+      });
+      loadModel();
+    });
+  </script>
+</body>
+</html>
