@@ -1,0 +1,152 @@
+# This workflow will bimport React, { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Upload } from "lucide-react";
+
+export default function ShrimpApp() {
+  const [image, setImage] = useState(null);
+  const [result, setResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) setImage(URL.createObjectURL(file));
+  };
+
+  const simulateLengthFromImage = () => {
+    // ในเวอร์ชันถัดไป: ใช้ AI วัดความยาวจากไม้บรรทัดในภาพจริง
+    return 13.4; // ความยาวสมมุติจากภาพที่อัปโหลด
+  };
+
+  const estimateWeight = (length_cm) => {
+    const a = 0.0021;
+    const b = -0.01;
+    const c = 0.02;
+    const weight = a * length_cm ** 2 + b * length_cm + c;
+    const weightRounded = Math.round(weight * 1000) / 1000;
+    const lastDigit = parseInt((weightRounded * 1000).toFixed(0).slice(-1));
+    const parity = lastDigit % 2 === 0 ? "Even" : "Odd";
+    return { length_cm, weight: weightRounded, lastDigit, parity };
+  };
+
+  const handlePredict = () => {
+    setIsLoading(true);
+    setTimeout(() => {
+      const length = simulateLengthFromImage();
+      const output = estimateWeight(length);
+      setResult(output);
+      setIsLoading(false);
+    }, 1500);
+  };
+
+  return (
+    <main className="min-h-screen bg-gray-50 py-10 px-4">
+      <div className="max-w-xl mx-auto space-y-6">
+        <h1 className="text-2xl font-bold text-center text-emerald-700">🦐 Shrimp Weight & Parity Predictor</h1>
+
+        <Card>
+          <CardContent className="space-y-4 pt-4">
+            <Label htmlFor="file">📤 อัปโหลดภาพกุ้ง (.jpg, .png)</Label>
+            <Input id="file" type="file" accept="image/*" onChange={handleImageUpload} />
+            {image && <img src={image} alt="shrimp" className="rounded-xl border h-60 object-contain" />}
+            <Button onClick={handlePredict} disabled={!image || isLoading}>
+              {isLoading ? "🔍 กำลังวิเคราะห์..." : "Predict"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {result && (
+          <Card className="bg-white border-2 border-emerald-300">
+            <CardContent className="p-4 space-y-2">
+              <h2 className="text-lg font-semibold">📊 ผลลัพธ์:</h2>
+              <p>📏 ความยาวโดยประมาณ: <strong>{result.length_cm.toFixed(2)} ซม.</strong></p>
+              <p>⚖️ น้ำหนักโดยประมาณ: <strong>{result.weight.toFixed(3)} กก.</strong></p>
+              <p>🔢 เลขทศนิยมหลักสุดท้าย: <strong>{result.lastDigit}</strong></p>
+              <p>🎯 ผลลัพธ์: <span className="font-bold text-emerald-700">{result.parity}</span></p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </main>
+  );
+}
+uild and push a node.js application to an Azure Web App when a commit is pushed to your default branch.
+#
+# This workflow assumes you have already created the target Azure App Service web app.
+# For instructions see https://docs.microsoft.com/en-us/azure/app-service/quickstart-nodejs?tabs=linux&pivots=development-environment-cli
+#
+# To configure this workflow:
+#
+# 1. Download the Publish Profile for your Azure Web App. You can download this file from the Overview page of your Web App in the Azure Portal.
+#    For more information: https://docs.microsoft.com/en-us/azure/app-service/deploy-github-actions?tabs=applevel#generate-deployment-credentials
+#
+# 2. Create a secret in your repository named AZURE_WEBAPP_PUBLISH_PROFILE, paste the publish profile contents as the value of the secret.
+#    For instructions on obtaining the publish profile see: https://docs.microsoft.com/azure/app-service/deploy-github-actions#configure-the-github-secret
+#
+# 3. Change the value for the AZURE_WEBAPP_NAME. Optionally, change the AZURE_WEBAPP_PACKAGE_PATH and NODE_VERSION environment variables below.
+#
+# For more information on GitHub Actions for Azure: https://github.com/Azure/Actions
+# For more information on the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# For more samples to get started with GitHub Action workflows to deploy to Azure: https://github.com/Azure/actions-workflow-samples
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: your-app-name    # set this to your application's name
+  AZURE_WEBAPP_PACKAGE_PATH: '.'      # set this to the path to your web app project, defaults to the repository root
+  NODE_VERSION: '20.x'                # set this to the node version to use
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: npm install, build, and test
+      run: |
+        npm install
+        npm run build --if-present
+        npm run test --if-present
+
+    - name: Upload artifact for deployment job
+      uses: actions/upload-artifact@v4
+      with:
+        name: node-app
+        path: .
+
+  deploy:
+    permissions:
+      contents: none
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: 'Development'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+    - name: Download artifact from build job
+      uses: actions/download-artifact@v4
+      with:
+        name: node-app
+
+    - name: 'Deploy to Azure WebApp'
+      id: deploy-to-webapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
